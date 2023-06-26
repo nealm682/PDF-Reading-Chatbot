@@ -60,3 +60,52 @@ text_splitter = RecursiveCharacterTextSplitter(
 )
 
 chunks = text_splitter.create_documents([text])
+
+# Quick data visualization to ensure chunking was successful
+# Create a list of token counts
+token_counts = [count_tokens(chunk.page_content) for chunk in chunks]
+
+# Create a DataFrame from the token counts
+df = pd.DataFrame({'Token Count': token_counts})
+
+# Create a histogram of the token count distribution
+df.hist(bins=40, )
+
+# Show the plot
+plt.show()
+
+
+
+# Get embedding model
+embeddings = OpenAIEmbeddings()
+
+# Create vector database
+db = FAISS.from_documents(chunks, embeddings)
+
+
+# Create conversation chain that uses our vectordb as retriver, this also allows for chat history management
+qa = ConversationalRetrievalChain.from_llm(OpenAI(temperature=0.1), db.as_retriever())
+
+
+chat_history = []
+
+def on_submit(_):
+    query = input_box.value
+    input_box.value = ""
+
+    if query.lower() == 'exit':
+        print("Thank you for using Neal's chatbot!")
+        return
+
+    result = qa({"question": query, "chat_history": chat_history})
+    chat_history.append((query, result['answer']))
+
+    display(widgets.HTML(f'<b>User:</b> {query}'))
+    display(widgets.HTML(f'<b><font color="blue">Chatbot:</font></b> {result["answer"]}'))
+
+print("Ask me a question about the PDF document you just uploaded. Type 'exit' to stop.")
+
+input_box = widgets.Text(placeholder='Please enter your question here:')
+input_box.on_submit(on_submit)
+
+display(input_box)
